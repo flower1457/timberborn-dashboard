@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Biberkolonie — Live Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Lora:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Tokens ─────────────────────────────────────────────── */
+    :root {
+      --bg:          #110e08;
+      --surface:     #1d1710;
+      --border:      #3a2e1e;
+      --text:        #d4c4a0;
+      --muted:       #6b5c3e;
+
+      --temperate-off:  #1b2e1e;
+      --temperate-mid:  #3a7a47;
+      --temperate-on:   #5fc473;
+      --temperate-glow: #5fc47340;
+
+      --drought-off:  #2e1e0a;
+      --drought-mid:  #c46a1a;
+      --drought-on:   #f08030;
+      --drought-glow: #f0803040;
+
+      --badtide-off:  #1a1228;
+      --badtide-mid:  #7a3ca8;
+      --badtide-on:   #b06cdf;
+      --badtide-glow: #b06cdf40;
+
+      --firework:     #e8c44a;
+      --firework-glow:#e8c44a60;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Lora', Georgia, serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1.25rem 4rem;
+      background-image:
+        radial-gradient(ellipse 80% 40% at 50% -10%, #2a1e0820 0%, transparent 70%),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      max-width: 700px;
+    }
+    .colony-name {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: clamp(1.4rem, 4vw, 2.2rem);
+      letter-spacing: 0.04em;
+      color: var(--firework);
+      text-shadow: 0 0 30px var(--firework-glow);
+      margin-bottom: 0.35rem;
+    }
+    .subtitle {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    /* ── Status pill ────────────────────────────────────────── */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 2.5rem;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+    .status-dot.connected {
+      background: var(--temperate-on);
+      box-shadow: 0 0 8px var(--temperate-glow);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .status-dot.error { background: var(--drought-on); box-shadow: 0 0 8px var(--drought-glow); }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ── Weather cards ──────────────────────────────────────── */
+    .weather-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      width: 100%;
+      max-width: 700px;
+      margin-bottom: 2.5rem;
+    }
+
+    .weather-card {
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 1.8rem 1.4rem 1.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+      transition: border-color 0.5s, background 0.5s, box-shadow 0.5s, transform 0.3s;
+      cursor: default;
+      position: relative;
+      overflow: hidden;
+    }
+    .weather-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.5s;
+      border-radius: inherit;
+    }
+
+    /* Temperate */
+    .weather-card.temperate .card-icon { color: var(--temperate-mid); }
+    .weather-card.temperate.active {
+      border-color: var(--temperate-mid);
+      background: var(--temperate-off);
+      box-shadow: 0 0 32px var(--temperate-glow), inset 0 0 20px #1b2e1e80;
+    }
+    .weather-card.temperate.active .card-icon { color: var(--temperate-on); filter: drop-shadow(0 0 8px var(--temperate-on)); }
+    .weather-card.temperate.active .card-label { color: var(--temperate-on); }
+
+    /* Drought */
+    .weather-card.drought .card-icon { color: var(--drought-mid); }
+    .weather-card.drought.active {
+      border-color: var(--drought-mid);
+      background: var(--drought-off);
+      box-shadow: 0 0 32px var(--drought-glow), inset 0 0 20px #2e1e0a80;
+    }
+    .weather-card.drought.active .card-icon { color: var(--drought-on); filter: drop-shadow(0 0 8px var(--drought-on)); }
+    .weather-card.drought.active .card-label { color: var(--drought-on); }
+
+    /* Badtide */
+    .weather-card.badtide .card-icon { color: var(--badtide-mid); }
+    .weather-card.badtide.active {
+      border-color: var(--badtide-mid);
+      background: var(--badtide-off);
+      box-shadow: 0 0 32px var(--badtide-glow), inset 0 0 20px #1a122880;
+    }
+    .weather-card.badtide.active .card-icon { color: var(--badtide-on); filter: drop-shadow(0 0 8px var(--badtide-on)); }
+    .weather-card.badtide.active .card-label { color: var(--badtide-on); }
+
+    /* Active shimmer */
+    .weather-card.active { transform: translateY(-2px); }
+    .weather-card.active::before { opacity: 1; }
+
+    .card-icon {
+      font-size: 2.8rem;
+      line-height: 1;
+      transition: color 0.5s, filter 0.5s;
+    }
+    .card-label {
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      text-align: center;
+      transition: color 0.5s;
+    }
+    .card-state {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    /* Active badge */
+    .active-badge {
+      position: absolute;
+      top: 0.7rem; right: 0.7rem;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .temperate .active-badge { background: var(--temperate-on); box-shadow: 0 0 6px var(--temperate-on); }
+    .drought   .active-badge { background: var(--drought-on);   box-shadow: 0 0 6px var(--drought-on); }
+    .badtide   .active-badge { background: var(--badtide-on);   box-shadow: 0 0 6px var(--badtide-on); }
+    .active .active-badge { opacity: 1; animation: pulse-dot 1.5s ease-in-out infinite; }
+
+    /* ── Divider ────────────────────────────────────────────── */
+    .divider {
+      width: 100%;
+      max-width: 700px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--border), transparent);
+      margin-bottom: 2.5rem;
+    }
+
+    /* ── Fireworks section ──────────────────────────────────── */
+    .fireworks-section {
+      text-align: center;
+      max-width: 700px;
+      width: 100%;
+    }
+    .section-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 1.4rem;
+    }
+
+    .firework-btn {
+      position: relative;
+      background: transparent;
+      border: 2px solid var(--firework);
+      color: var(--firework);
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      padding: 1rem 2.8rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.15s, color 0.2s;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .firework-btn:hover:not(:disabled) {
+      background: #e8c44a14;
+      box-shadow: 0 0 28px var(--firework-glow);
+      transform: translateY(-1px);
+    }
+    .firework-btn:active:not(:disabled) { transform: scale(0.97); }
+    .firework-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: var(--muted);
+      color: var(--muted);
+    }
+    .firework-btn.fired {
+      background: var(--firework);
+      color: var(--bg);
+      box-shadow: 0 0 50px var(--firework-glow), 0 0 100px #e8c44a20;
+      animation: fire-flash 0.15s ease-out;
+    }
+    @keyframes fire-flash {
+      0%   { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+
+    .btn-emoji { font-size: 1.3rem; }
+
+    .firework-hint {
+      margin-top: 0.9rem;
+      font-style: italic;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .cooldown-bar {
+      width: 200px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0.8rem auto 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .cooldown-bar.active { opacity: 1; }
+    .cooldown-fill {
+      height: 100%;
+      background: var(--firework);
+      width: 100%;
+      transform-origin: left;
+      transform: scaleX(0);
+    }
+
+    /* ── Settings panel ─────────────────────────────────────── */
+    .settings-toggle {
+      margin-top: 3.5rem;
+      background: none;
+      border: none;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: color 0.2s;
+    }
+    .settings-toggle:hover { color: var(--text); }
+
+    .settings-panel {
+      display: none;
+      width: 100%;
+      max-width: 700px;
+      margin-top: 1.2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.6rem;
+    }
+    .settings-panel.open { display: block; }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 500px) { .settings-grid { grid-template-columns: 1fr; } }
+
+    .field { display: flex; flex-direction: column; gap: 0.35rem; }
+    .field.full { grid-column: 1 / -1; }
+    label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      padding: 0.55rem 0.75rem;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    input[type="text"]:focus { border-color: var(--firework); }
+
+    .settings-save {
+      margin-top: 1.2rem;
+      background: var(--firework);
+      border: none;
+      border-radius: 6px;
+      color: var(--bg);
+      font-family: 'Cinzel Decorative', serif;
+      font-size: 0.75rem;
+      padding: 0.6rem 1.6rem;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: opacity 0.2s;
+    }
+    .settings-save:hover { opacity: 0.85; }
+
+    .settings-hint {
+      margin-top: 1rem;
+      font-size: 0.72rem;
+      font-style: italic;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .settings-hint a { color: var(--firework); text-decoration: none; }
+    .settings-hint a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="colony-name">Biberkolonie</div>
+    <div class="subtitle">Live-Dashboard · Wetterstatus &amp; Steuerung</div>
+  </header>
+
+  <div class="status-bar">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Verbinde…</span>
+  </div>
+
+  <!-- Weather cards -->
+  <div class="weather-grid">
+    <div class="weather-card temperate" id="card-temperate">
+      <div class="active-badge"></div>
+      <div class="card-icon">🌿</div>
+      <div class="card-label">Gemäßigt</div>
+      <div class="card-state" id="state-temperate">—</div>
+    </div>
+    <div class="weather-card drought" id="card-drought">
+      <div class="active-badge"></div>
+      <div class="card-icon">☀️</div>
+      <div class="card-label">Dürre</div>
+      <div class="card-state" id="state-drought">—</div>
+    </div>
+    <div class="weather-card badtide" id="card-badtide">
+      <div class="active-badge"></div>
+      <div class="card-icon">☠️</div>
+      <div class="card-label">Faulwasser</div>
+      <div class="card-state" id="state-badtide">—</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Fireworks -->
+  <div class="fireworks-section">
+    <div class="section-title">Steuerung</div>
+    <button class="firework-btn" id="fireworkBtn" onclick="triggerFireworks()">
+      <span class="btn-emoji">🎆</span> Feuerwerk starten
+    </button>
+    <div class="cooldown-bar" id="cooldownBar">
+      <div class="cooldown-fill" id="cooldownFill"></div>
+    </div>
+    <div class="firework-hint">Gibt ein Signal an den Feuerwerk-Hebel in der Kolonie</div>
+  </div>
+
+  <!-- Settings -->
+  <button class="settings-toggle" onclick="toggleSettings()">
+    ⚙ Einstellungen
+  </button>
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-grid">
+      <div class="field full">
+        <label>API-Basis-URL (z. B. Cloudflare Tunnel)</label>
+        <input type="text" id="cfg-base" placeholder="http://localhost:8080" />
+      </div>
+      <div class="field">
+        <label>Adapter: Gemäßigt</label>
+        <input type="text" id="cfg-adapter-temperate" placeholder="gemässigt" />
+      </div>
+      <div class="field">
+        <label>Adapter: Dürre</label>
+        <input type="text" id="cfg-adapter-drought" placeholder="dürre" />
+      </div>
+      <div class="field">
+        <label>Adapter: Faulwasser</label>
+        <input type="text" id="cfg-adapter-badtide" placeholder="faulwasser" />
+      </div>
+      <div class="field">
+        <label>Hebel: Feuerwerk</label>
+        <input type="text" id="cfg-lever-firework" placeholder="feuerwerk" />
+      </div>
+    </div>
+    <button class="settings-save" onclick="saveSettings()">Speichern &amp; verbinden</button>
+    <div class="settings-hint">
+      ℹ️ Timberborn läuft standardmäßig auf <code>localhost:8080</code>. Für externen Zugriff brauchst du einen Tunnel
+      (<a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank">Cloudflare Tunnel</a>,
+      <a href="https://ngrok.com" target="_blank">ngrok</a>, …) und den Mod
+      <a href="https://mod.io/g/timberborn/m/remote-api-access" target="_blank">Remote API Access</a>
+      (für CORS-Support).<br><br>
+      Die Adapter-/Hebel-Namen müssen exakt mit dem In-Game-Namen übereinstimmen (Groß-/Kleinschreibung beachten!).
+    </div>
+  </div>
+
+<script>
+  // ── Config ────────────────────────────────────────────────
+  const DEFAULTS = {
+    base:              'http://localhost:8080',
+    adapterTemperate:  'gemässigt',
+    adapterDrought:    'dürre',
+    adapterBadtide:    'faulwasser',
+    leverFirework:     'feuerwerk',
+  };
+
+  function loadConfig() {
+    const stored = localStorage.getItem('tbConfig');
+    return stored ? { ...DEFAULTS, ...JSON.parse(stored) } : { ...DEFAULTS };
+  }
+  function saveConfig(cfg) {
+    localStorage.setItem('tbConfig', JSON.stringify(cfg));
+  }
+
+  let cfg = loadConfig();
+
+  // Populate fields on load
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('cfg-base').value               = cfg.base;
+    document.getElementById('cfg-adapter-temperate').value  = cfg.adapterTemperate;
+    document.getElementById('cfg-adapter-drought').value    = cfg.adapterDrought;
+    document.getElementById('cfg-adapter-badtide').value    = cfg.adapterBadtide;
+    document.getElementById('cfg-lever-firework').value     = cfg.leverFirework;
+    startPolling();
+  });
+
+  function saveSettings() {
+    cfg = {
+      base:              document.getElementById('cfg-base').value.trim().replace(/\/$/, ''),
+      adapterTemperate:  document.getElementById('cfg-adapter-temperate').value.trim(),
+      adapterDrought:    document.getElementById('cfg-adapter-drought').value.trim(),
+      adapterBadtide:    document.getElementById('cfg-adapter-badtide').value.trim(),
+      leverFirework:     document.getElementById('cfg-lever-firework').value.trim(),
+    };
+    saveConfig(cfg);
+    document.getElementById('settingsPanel').classList.remove('open');
+    setStatus('connecting');
+  }
+
+  function toggleSettings() {
+    document.getElementById('settingsPanel').classList.toggle('open');
+  }
+
+  // ── Status ────────────────────────────────────────────────
+  function setStatus(state, text) {
+    const dot  = document.getElementById('statusDot');
+    const span = document.getElementById('statusText');
+    dot.className = 'status-dot ' + (state === 'connecting' ? '' : state);
+    span.textContent = text || {
+      connected:  'Verbunden · Aktualisiert alle 3 s',
+      error:      'Keine Verbindung zum Spiel',
+      connecting: 'Verbinde…',
+    }[state] || '';
+  }
+
+  // ── Weather polling ───────────────────────────────────────
+  const ADAPTERS = [
+    { key: 'temperate', cfgKey: 'adapterTemperate' },
+    { key: 'drought',   cfgKey: 'adapterDrought'   },
+    { key: 'badtide',   cfgKey: 'adapterBadtide'   },
+  ];
+
+  async function fetchAdapter(name) {
+    const url = `${cfg.base}/api/adapters/${encodeURIComponent(name)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  async function pollWeather() {
+    let anyOk = false;
+    for (const { key, cfgKey } of ADAPTERS) {
+      const adapterName = cfg[cfgKey];
+      const card  = document.getElementById(`card-${key}`);
+      const state = document.getElementById(`state-${key}`);
+      try {
+        const data = await fetchAdapter(adapterName);
+        const on   = data.state === true;
+        card.classList.toggle('active', on);
+        state.textContent = on ? 'AKTIV' : 'inaktiv';
+        anyOk = true;
+      } catch {
+        card.classList.remove('active');
+        state.textContent = '?';
+      }
+    }
+    setStatus(anyOk ? 'connected' : 'error');
+  }
+
+  let pollTimer = null;
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    setStatus('connecting');
+    pollWeather();
+    pollTimer = setInterval(pollWeather, 3000);
+  }
+
+  // ── Fireworks ─────────────────────────────────────────────
+  const COOLDOWN_MS = 5000;
+  let cooldownActive = false;
+
+  async function triggerFireworks() {
+    if (cooldownActive) return;
+    const btn  = document.getElementById('fireworkBtn');
+    const bar  = document.getElementById('cooldownBar');
+    const fill = document.getElementById('cooldownFill');
+
+    try {
+      const onUrl  = `${cfg.base}/api/switch-on/${encodeURIComponent(cfg.leverFirework)}`;
+      const offUrl = `${cfg.base}/api/switch-off/${encodeURIComponent(cfg.leverFirework)}`;
+      await fetch(onUrl,  { signal: AbortSignal.timeout(3000) });
+      setTimeout(() => fetch(offUrl, { signal: AbortSignal.timeout(3000) }), 2500);
+
+      btn.classList.add('fired');
+      setTimeout(() => btn.classList.remove('fired'), 600);
+    } catch {
+      // Show error glow
+      btn.style.borderColor = 'var(--drought-on)';
+      setTimeout(() => btn.style.borderColor = '', 1200);
+    }
+
+    // Cooldown
+    cooldownActive = true;
+    btn.disabled = true;
+    bar.classList.add('active');
+    fill.style.transition = 'none';
+    fill.style.transform  = 'scaleX(1)';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fill.style.transition = `transform ${COOLDOWN_MS}ms linear`;
+      fill.style.transform  = 'scaleX(0)';
+    }));
+    setTimeout(() => {
+      cooldownActive = false;
+      btn.disabled = false;
+      bar.classList.remove('active');
+    }, COOLDOWN_MS);
+  }
+</script>
+</body>
+</html>
