@@ -15,9 +15,9 @@ The game's API only runs locally, so a tunnel is needed to make it accessible fr
    ```
    https://something-xyz-abc.trycloudflare.com
    ```
-4. Copy that URL and paste it into `index.html` line 438:
+4. Copy that URL and paste it into `index.html`
    ```js
    base: 'https://something-xyz-abc.trycloudflare.com',
    ```
-5. Upload `index.html` to this repository — the site updates after ~2 minutes
+5. Commit the changes and wait ~2 minutes
 > The Command Prompt window must stay open while playing. The URL changes every time the tunnel is restarted.
