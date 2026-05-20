@@ -386,7 +386,6 @@
 
   <header>
     <div class="colony-name">Biberkolonie</div>
-    <div class="subtitle">Live-Dashboard · Wetterstatus &amp; Steuerung</div>
   </header>
 
   <div class="status-bar">
@@ -420,7 +419,6 @@
 
   <!-- Fireworks -->
   <div class="fireworks-section">
-    <div class="section-title">Steuerung</div>
     <button class="firework-btn" id="fireworkBtn" onclick="triggerFireworks()">
       <span class="btn-emoji">🎆</span> Feuerwerk starten
     </button>
@@ -430,90 +428,21 @@
     <div class="firework-hint">Gibt ein Signal an den Feuerwerk-Hebel in der Kolonie</div>
   </div>
 
-  <!-- Settings -->
-  <button class="settings-toggle" onclick="toggleSettings()">
-    ⚙ Einstellungen
-  </button>
-  <div class="settings-panel" id="settingsPanel">
-    <div class="settings-grid">
-      <div class="field full">
-        <label>API-Basis-URL (z. B. Cloudflare Tunnel)</label>
-        <input type="text" id="cfg-base" placeholder="http://localhost:8080" />
-      </div>
-      <div class="field">
-        <label>Adapter: Gemäßigt</label>
-        <input type="text" id="cfg-adapter-temperate" placeholder="gemässigt" />
-      </div>
-      <div class="field">
-        <label>Adapter: Dürre</label>
-        <input type="text" id="cfg-adapter-drought" placeholder="dürre" />
-      </div>
-      <div class="field">
-        <label>Adapter: Faulwasser</label>
-        <input type="text" id="cfg-adapter-badtide" placeholder="faulwasser" />
-      </div>
-      <div class="field">
-        <label>Hebel: Feuerwerk</label>
-        <input type="text" id="cfg-lever-firework" placeholder="feuerwerk" />
-      </div>
-    </div>
-    <button class="settings-save" onclick="saveSettings()">Speichern &amp; verbinden</button>
-    <div class="settings-hint">
-      ℹ️ Timberborn läuft standardmäßig auf <code>localhost:8080</code>. Für externen Zugriff brauchst du einen Tunnel
-      (<a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/" target="_blank">Cloudflare Tunnel</a>,
-      <a href="https://ngrok.com" target="_blank">ngrok</a>, …) und den Mod
-      <a href="https://mod.io/g/timberborn/m/remote-api-access" target="_blank">Remote API Access</a>
-      (für CORS-Support).<br><br>
-      Die Adapter-/Hebel-Namen müssen exakt mit dem In-Game-Namen übereinstimmen (Groß-/Kleinschreibung beachten!).
-    </div>
-  </div>
 
 <script>
   // ── Config ────────────────────────────────────────────────
-  const DEFAULTS = {
-    base:              'http://localhost:8080',
-    adapterTemperate:  'gemässigt',
-    adapterDrought:    'dürre',
-    adapterBadtide:    'faulwasser',
-    leverFirework:     'feuerwerk',
+  // Namen hier anpassen, damit sie mit dem Spiel übereinstimmen:
+  const cfg = {
+    base:             'http://localhost:8080',
+    adapterTemperate: 'gemässigt',
+    adapterDrought:   'dürre',
+    adapterBadtide:   'faulwasser',
+    leverFirework:    'feuerwerk',
   };
 
-  function loadConfig() {
-    const stored = localStorage.getItem('tbConfig');
-    return stored ? { ...DEFAULTS, ...JSON.parse(stored) } : { ...DEFAULTS };
-  }
-  function saveConfig(cfg) {
-    localStorage.setItem('tbConfig', JSON.stringify(cfg));
-  }
-
-  let cfg = loadConfig();
-
-  // Populate fields on load
   window.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('cfg-base').value               = cfg.base;
-    document.getElementById('cfg-adapter-temperate').value  = cfg.adapterTemperate;
-    document.getElementById('cfg-adapter-drought').value    = cfg.adapterDrought;
-    document.getElementById('cfg-adapter-badtide').value    = cfg.adapterBadtide;
-    document.getElementById('cfg-lever-firework').value     = cfg.leverFirework;
     startPolling();
   });
-
-  function saveSettings() {
-    cfg = {
-      base:              document.getElementById('cfg-base').value.trim().replace(/\/$/, ''),
-      adapterTemperate:  document.getElementById('cfg-adapter-temperate').value.trim(),
-      adapterDrought:    document.getElementById('cfg-adapter-drought').value.trim(),
-      adapterBadtide:    document.getElementById('cfg-adapter-badtide').value.trim(),
-      leverFirework:     document.getElementById('cfg-lever-firework').value.trim(),
-    };
-    saveConfig(cfg);
-    document.getElementById('settingsPanel').classList.remove('open');
-    setStatus('connecting');
-  }
-
-  function toggleSettings() {
-    document.getElementById('settingsPanel').classList.toggle('open');
-  }
 
   // ── Status ────────────────────────────────────────────────
   function setStatus(state, text) {
