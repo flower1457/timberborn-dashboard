@@ -20,4 +20,5 @@ The game's API only runs locally, so a tunnel is needed to make it accessible fr
    base: 'https://something-xyz-abc.trycloudflare.com',
    ```
 5. Commit the changes and wait ~2 minutes
+6. Start the API in Timberborn
 > The Command Prompt window must stay open while playing. The URL changes every time the tunnel is restarted.
